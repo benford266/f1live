@@ -1,0 +1,328 @@
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+import type { Driver, RaceStatus } from '../../types/f1Data';
+
+// Mock data
+const mockDrivers: Driver[] = [
+  {
+    id: '1',
+    number: '1',
+    name: 'Max Verstappen',
+    team: 'Red Bull Racing',
+    position: 1,
+    gapToLeader: '0',
+    lastLapTime: '1:31.456',
+    bestLapTime: '1:31.234',
+    completedLaps: 25,
+    speed: 315,
+    isRetired: false,
+    isPitStop: false,
+    teamColor: '#3671C6'
+  },
+  {
+    id: '44',
+    number: '44',
+    name: 'Lewis Hamilton',
+    team: 'Mercedes',
+    position: 2,
+    gapToLeader: '+5.234',
+    lastLapTime: '1:31.678',
+    bestLapTime: '1:31.456',
+    completedLaps: 25,
+    speed: 312,
+    isRetired: false,
+    isPitStop: false,
+    teamColor: '#6CD3BF'
+  },
+  {
+    id: '16',
+    number: '16',
+    name: 'Charles Leclerc',
+    team: 'Ferrari',
+    position: 3,
+    gapToLeader: '+8.567',
+    lastLapTime: '1:31.890',
+    bestLapTime: '1:31.567',
+    completedLaps: 25,
+    speed: 310,
+    isRetired: false,
+    isPitStop: false,
+    teamColor: '#F91536'
+  }
+];
+
+const mockRaceStatus: RaceStatus = {
+  sessionType: 'Race',
+  sessionState: 'Started',
+  trackStatus: 'Green',
+  lapNumber: 25,
+  totalLaps: 58,
+  timeRemaining: '01:23:45',
+  weatherConditions: {
+    temperature: 32,
+    humidity: 60,
+    pressure: 1013,
+    windSpeed: 10,
+    trackTemperature: 45
+  }
+};
+
+// Request handlers
+const handlers = [
+  // Session endpoints
+  http.get('http://localhost:3001/api/session/current', () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        sessionName: 'Formula 1 Test Session',
+        sessionType: 'Race',
+        sessionState: 'STARTED',
+        timeRemaining: '01:23:45',
+        totalLaps: 58,
+        currentLap: 25,
+        trackStatus: 'Green',
+        lastUpdated: new Date().toISOString(),
+        timestamp: new Date().toISOString()
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        source: 'cache',
+        cached: true
+      }
+    });
+  }),
+
+  http.get('http://localhost:3001/api/session/status', () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        connectionStatus: {
+          connected: true,
+          lastHeartbeat: new Date().toISOString(),
+          subscriptions: ['TimingData', 'WeatherData'],
+          reconnectAttempts: 0
+        },
+        dataAvailable: true,
+        lastDataUpdate: new Date().toISOString(),
+        serverTime: new Date().toISOString()
+      },
+      meta: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }),
+
+  // Driver endpoints
+  http.get('http://localhost:3001/api/drivers', ({ request }) => {
+    const url = new URL(request.url);
+    const details = url.searchParams.get('details') === 'true';
+    const active = url.searchParams.get('active') === 'true';
+
+    let drivers = mockDrivers;
+    if (active) {
+      drivers = drivers.filter(driver => !driver.isRetired);
+    }
+
+    const driversObject: Record<string, any> = {};
+    drivers.forEach(driver => {
+      driversObject[driver.number] = {
+        driverNumber: driver.number,
+        name: driver.name,
+        team: driver.team,
+        tla: driver.name.split(' ').map(n => n[0]).join(''),
+        color: driver.teamColor,
+        country: 'Test Country',
+        ...(details && {
+          position: driver.position,
+          lapTime: driver.lastLapTime,
+          lapNumber: driver.completedLaps,
+          gap: driver.gapToLeader,
+          status: driver.isRetired ? 'RETIRED' : 'ON_TRACK'
+        })
+      };
+    });
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        drivers: driversObject,
+        count: Object.keys(driversObject).length,
+        sessionActive: true,
+        lastUpdated: new Date().toISOString()
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        includeDetails: details,
+        onlyActive: active
+      }
+    });
+  }),
+
+  http.get('http://localhost:3001/api/drivers/:number', ({ params }) => {
+    const driverNumber = params.number as string;
+    const driver = mockDrivers.find(d => d.number === driverNumber);
+
+    if (!driver) {
+      return HttpResponse.json({
+        success: false,
+        error: 'Not Found',
+        message: `Driver ${driverNumber} not found`,
+        timestamp: new Date().toISOString()
+      }, { status: 404 });
+    }
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        driverNumber: driver.number,
+        name: driver.name,
+        team: driver.team,
+        tla: driver.name.split(' ').map(n => n[0]).join(''),
+        color: driver.teamColor,
+        country: 'Test Country',
+        position: driver.position,
+        lapTime: driver.lastLapTime,
+        lapNumber: driver.completedLaps,
+        gap: driver.gapToLeader,
+        status: driver.isRetired ? 'RETIRED' : 'ON_TRACK',
+        sectors: {
+          sector1: '28.123',
+          sector2: '35.456',
+          sector3: '18.789'
+        },
+        telemetry: {
+          speed: driver.speed,
+          rpm: 12000,
+          gear: 7,
+          throttle: 85,
+          brake: 0,
+          drs: false
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  }),
+
+  http.get('http://localhost:3001/api/drivers/standings', () => {
+    const standings = mockDrivers
+      .filter(driver => !driver.isRetired)
+      .sort((a, b) => a.position - b.position)
+      .map(driver => ({
+        position: driver.position,
+        driverNumber: driver.number,
+        name: driver.name,
+        team: driver.team,
+        tla: driver.name.split(' ').map(n => n[0]).join(''),
+        lapTime: driver.lastLapTime,
+        gap: driver.gapToLeader,
+        laps: driver.completedLaps,
+        status: 'ON_TRACK'
+      }));
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        standings,
+        totalDrivers: standings.length,
+        sessionActive: true,
+        lastUpdated: new Date().toISOString()
+      },
+      meta: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }),
+
+  // Health check
+  http.get('http://localhost:3001/health', () => {
+    return HttpResponse.json({
+      success: true,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'healthy',
+        cache: 'healthy',
+        websocket: 'healthy'
+      }
+    });
+  }),
+
+  // Error simulation endpoints for testing
+  http.get('http://localhost:3001/api/test/error', () => {
+    return HttpResponse.json({
+      success: false,
+      error: 'Internal Server Error',
+      message: 'Test error for testing purposes',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }),
+
+  http.get('http://localhost:3001/api/test/timeout', () => {
+    // Simulate network timeout
+    return new Promise(() => {
+      // Never resolve to simulate timeout
+    });
+  }),
+
+  // Catch-all handler for unmocked requests
+  http.all('*', ({ request }) => {
+    console.warn(`Unmocked request: ${request.method} ${request.url}`);
+    return HttpResponse.json({
+      success: false,
+      error: 'Not Implemented',
+      message: `Mock handler not implemented for ${request.method} ${request.url}`,
+      timestamp: new Date().toISOString()
+    }, { status: 501 });
+  })
+];
+
+// Create and export the server
+export const server = setupServer(...handlers);
+
+// Export mock data for use in tests
+export { mockDrivers, mockRaceStatus };
+
+// Export helper functions
+export const mockApiHelpers = {
+  // Simulate driver updates
+  updateDriverPosition: (driverNumber: string, newPosition: number) => {
+    const driver = mockDrivers.find(d => d.number === driverNumber);
+    if (driver) {
+      driver.position = newPosition;
+    }
+  },
+
+  // Simulate driver retirement
+  retireDriver: (driverNumber: string) => {
+    const driver = mockDrivers.find(d => d.number === driverNumber);
+    if (driver) {
+      driver.isRetired = true;
+    }
+  },
+
+  // Reset mock data to initial state
+  resetMockData: () => {
+    mockDrivers.forEach((driver, index) => {
+      driver.position = index + 1;
+      driver.isRetired = false;
+      driver.isPitStop = false;
+    });
+  },
+
+  // Add network delay simulation
+  addNetworkDelay: (delayMs: number = 1000) => {
+    server.use(
+      http.all('*', async ({ request }) => {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        return HttpResponse.json({
+          success: false,
+          error: 'Request delayed for testing',
+          timestamp: new Date().toISOString()
+        }, { status: 408 });
+      })
+    );
+  }
+};

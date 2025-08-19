@@ -1,0 +1,111 @@
+{
+  "name": "f1-live-data-visualization",
+  "version": "1.0.0",
+  "description": "Real-time F1 data visualization application with comprehensive testing framework",
+  "private": true,
+  "main": "src/index.tsx",
+  "homepage": ".",
+  "dependencies": {
+    "@types/node": "^20.11.16",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "socket.io-client": "^4.7.4",
+    "axios": "^1.6.2",
+    "typescript": "^5.9.2",
+    "web-vitals": "^3.5.0"
+  },
+  "overrides": {
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:ci": "react-scripts test --coverage --ci --watchAll=false",
+    "test:debug": "react-scripts test --verbose",
+    "eject": "react-scripts eject",
+    "test:all": "node test-runner.js",
+    "test:backend": "node test-runner.js backend",
+    "test:frontend": "node test-runner.js frontend",
+    "test:e2e": "node test-runner.js e2e",
+    "test:install": "node test-runner.js install",
+    "test:check": "node test-runner.js check",
+    "lighthouse": "lhci autorun",
+    "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ],
+    "rules": {
+      "testing-library/prefer-screen-queries": "error",
+      "testing-library/no-debugging-utils": "warn"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.2.0",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "msw": "^2.0.11",
+    "whatwg-fetch": "^3.6.19",
+    "@types/testing-library__jest-dom": "^6.0.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "eslint-plugin-testing-library": "^6.2.0",
+    "eslint-plugin-jest-dom": "^5.1.0",
+    "@lhci/cli": "^0.12.0",
+    "webpack-bundle-analyzer": "^4.10.1"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/index.tsx",
+      "!src/setupTests.ts",
+      "!src/**/*.d.ts",
+      "!src/__tests__/**",
+      "!src/**/__tests__/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 75,
+        "statements": 75
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "f1",
+    "formula1",
+    "real-time",
+    "visualization",
+    "react",
+    "websocket",
+    "testing",
+    "jest",
+    "playwright",
+    "performance"
+  ],
+  "author": "",
+  "license": "MIT"
+}
