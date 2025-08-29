@@ -5,6 +5,7 @@ const config = require('../../config');
 const logger = require('../../utils/logger');
 const DataProcessor = require('../data/processor');
 const { getCacheService } = require('../cache');
+const { getDatabaseService } = require('../../database');
 
 /**
  * Custom Legacy SignalR Client for F1 Live Timing
@@ -24,6 +25,7 @@ class LegacySignalRClient extends EventEmitter {
     this.state = 'disconnected';
     this.keepAliveTimeout = null;
     this.reconnectTimeout = null;
+    this.cookies = null; // Store cookies from negotiate response
     
     // Build connection data string for legacy SignalR
     this.connectionData = JSON.stringify(
@@ -76,6 +78,23 @@ class LegacySignalRClient extends EventEmitter {
         throw new Error(`Negotiate failed: ${response.status} ${response.statusText}`);
       }
 
+      // Extract cookies from response headers
+      const cookieHeaders = [];
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase() === 'set-cookie') {
+          cookieHeaders.push(value);
+        }
+      });
+      
+      if (cookieHeaders.length > 0) {
+        // Parse cookies and create Cookie header
+        this.cookies = cookieHeaders.map(cookie => {
+          const cookiePart = cookie.split(';')[0];
+          return cookiePart;
+        }).join('; ');
+        logger.debug('Extracted cookies:', this.cookies);
+      }
+
       const negotiateData = await response.json();
       
       this.connectionToken = negotiateData.ConnectionToken;
@@ -103,7 +122,20 @@ class LegacySignalRClient extends EventEmitter {
 
         const wsUrl = this.buildWebSocketUrl();
         
-        this.websocket = new WebSocket(wsUrl);
+        // WebSocket options with headers including cookies
+        const wsOptions = {
+          headers: {
+            'User-Agent': 'F1-Live-Data-Client/1.0',
+            'Origin': 'https://livetiming.formula1.com'
+          }
+        };
+
+        // Add cookies if we have them
+        if (this.cookies) {
+          wsOptions.headers['Cookie'] = this.cookies;
+        }
+        
+        this.websocket = new WebSocket(wsUrl, wsOptions);
 
         this.websocket.on('open', () => {
           logger.debug('WebSocket connection opened');
@@ -157,11 +189,18 @@ class LegacySignalRClient extends EventEmitter {
       
       const startUrl = `${this.url}/start?transport=webSockets&clientProtocol=1.5&connectionToken=${encodeURIComponent(this.connectionToken)}&connectionData=${encodeURIComponent(this.connectionData)}`;
       
+      const headers = {
+        'User-Agent': 'F1-Live-Data-Client/1.0',
+      };
+
+      // Add cookies if we have them
+      if (this.cookies) {
+        headers['Cookie'] = this.cookies;
+      }
+
       const response = await fetch(startUrl, {
         method: 'GET',
-        headers: {
-          'User-Agent': 'F1-Live-Data-Client/1.0',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -194,11 +233,18 @@ class LegacySignalRClient extends EventEmitter {
     try {
       // Legacy SignalR messages can be empty (keep-alive) or contain data
       if (!data || data === '') {
-        logger.debug('Keep-alive message received');
+        logger.info('Keep-alive message received');
         return;
       }
 
       const message = JSON.parse(data);
+      
+      // Log the actual message content (limited for readability)
+      if (data.length > 200) {
+        console.log('F1 SignalR Message:', data.substring(0, 200) + '...');
+      } else {
+        console.log('F1 SignalR Message:', data);
+      }
       
       // Handle different message types
       if (message.M) {
@@ -209,7 +255,7 @@ class LegacySignalRClient extends EventEmitter {
             const methodName = hubMessage.M;
             const args = hubMessage.A;
             
-            logger.debug(`Hub method called: ${hubName}.${methodName}`);
+            logger.info(`Hub method called: ${hubName}.${methodName} with ${args ? args.length : 0} args`);
             this.emit(hubName, methodName, ...args);
           }
         });
@@ -251,7 +297,8 @@ class LegacySignalRClient extends EventEmitter {
           I: callbackId
         };
 
-        logger.debug(`Calling hub method: ${hubName}.${methodName}`, args);
+        console.log(`Calling hub method: ${hubName}.${methodName} with args:`, JSON.stringify(args));
+        console.log('Sending SignalR message:', JSON.stringify(message));
         
         this.websocket.send(JSON.stringify(message));
         
@@ -316,11 +363,15 @@ class F1SignalRService {
     this.maxReconnectAttempts = config.f1.maxReconnectAttempts;
     this.reconnectInterval = config.f1.reconnectInterval;
     this.cacheService = getCacheService();
+    this.databaseService = getDatabaseService();
     
     // Data buffering for disconnection resilience
     this.dataBuffer = new Map();
     this.bufferMaxSize = 1000;
     this.lastDataTimestamp = null;
+    
+    // Persistent driver state - accumulates all driver data
+    this.driversState = new Map();
   }
 
   /**
@@ -407,7 +458,6 @@ class F1SignalRService {
       try {
         if (methodName === 'feed') {
           const [feedName, data, timestamp] = args;
-          logger.debug(`Received feed data: ${feedName}`);
           
           const processedData = this.dataProcessor.processFeed(feedName, data, timestamp);
           
@@ -415,6 +465,11 @@ class F1SignalRService {
             // Cache the processed data
             this.cacheProcessedData(feedName, processedData).catch(error => {
               logger.warn(`Failed to cache data for ${feedName}:`, error);
+            });
+            
+            // Log to database
+            this.logToDatabase(feedName, processedData).catch(error => {
+              logger.warn(`Failed to log data to database for ${feedName}:`, error);
             });
             
             // Buffer data for resilience
@@ -473,14 +528,78 @@ class F1SignalRService {
   handleTimingData(data) {
     this.io.emit('timing:update', data);
     
+    // Driver name mapping for 2024 season (typical F1 numbers)
+    const driverNames = {
+      '1': 'VER', '2': 'SAR', '3': 'RIC', '4': 'NOR', '5': 'VET', '6': 'DEV',
+      '10': 'GAS', '11': 'PER', '14': 'ALO', '16': 'LEC', '18': 'STR', '20': 'MAG',
+      '22': 'TSU', '23': 'ALB', '24': 'ZHO', '27': 'HUL', '30': 'OCA', '31': 'OCO',
+      '43': 'COL', '44': 'HAM', '55': 'SAI', '63': 'RUS', '77': 'BOT', '81': 'PIA'
+    };
+    
+    // Update persistent driver state with incoming data
+    if (data.drivers) {
+      Object.entries(data.drivers).forEach(([driverNumber, driverData]) => {
+        // Get existing driver data or create new entry
+        const existingDriver = this.driversState.get(driverNumber) || {
+          id: driverNumber,
+          driverNumber,
+          name: driverNames[driverNumber] || `#${driverNumber}`,
+          position: 0,
+          lastLapTime: null,
+          bestLapTime: null,
+          completedLaps: 0,
+          gap: null,
+          interval: null,
+          inPit: false,
+          status: 'RUNNING'
+        };
+        
+        // Debug logging for bestLapTime
+        if (driverData.bestLapTime !== undefined) {
+          logger.info(`Driver ${driverNumber} bestLapTime update: ${driverData.bestLapTime} (existing: ${existingDriver.bestLapTime})`);
+        }
+
+        // Update with new data (only if not null/undefined)
+        const updatedDriver = {
+          ...existingDriver,
+          ...(driverData.position !== null && { position: parseInt(driverData.position) || 0 }),
+          ...(driverData.lapTime !== null && { lastLapTime: driverData.lapTime }),
+          ...(driverData.bestLapTime !== undefined && { bestLapTime: driverData.bestLapTime }),
+          ...(driverData.lapNumber !== null && { completedLaps: driverData.lapNumber || 0 }),
+          ...(driverData.gap !== null && { gap: driverData.gap }),
+          ...(driverData.interval !== null && { interval: driverData.interval }),
+          ...(driverData.inPit !== null && { inPit: driverData.inPit }),
+          ...(driverData.status !== null && { status: driverData.status }),
+          timestamp: data.timestamp
+        };
+        
+        // Store updated driver state
+        this.driversState.set(driverNumber, updatedDriver);
+        
+        // Emit individual driver update
+        this.io.emit('driver:update', updatedDriver);
+      });
+      
+      // Emit complete drivers list (all known drivers)
+      const allDrivers = Array.from(this.driversState.values()).sort((a, b) => {
+        // Sort by position, but put drivers without positions at the end
+        if (!a.position && !b.position) return parseInt(a.driverNumber) - parseInt(b.driverNumber);
+        if (!a.position) return 1;
+        if (!b.position) return -1;
+        return a.position - b.position;
+      });
+      
+      this.io.emit('drivers:all', allDrivers);
+    }
+    
     // Check for lap completions
-    if (data.lapData) {
-      Object.entries(data.lapData).forEach(([driverNumber, lapInfo]) => {
-        if (lapInfo.lapCompleted) {
+    if (data.drivers) {
+      Object.entries(data.drivers).forEach(([driverNumber, driverData]) => {
+        if (driverData.lapTime && driverData.lapNumber) {
           this.io.emit('lap:completed', {
-            driverNumber,
-            lapTime: lapInfo.lapTime,
-            lapNumber: lapInfo.lapNumber,
+            driverId: driverNumber,
+            lapTime: driverData.lapTime,
+            lapNumber: driverData.lapNumber,
             timestamp: data.timestamp
           });
         }
@@ -518,7 +637,51 @@ class F1SignalRService {
   }
 
   handleDriverList(data) {
+    logger.info('handleDriverList called - this may reset driver states');
     this.io.emit('drivers:update', data);
+    
+    // Driver name mapping
+    const driverNames = {
+      '1': 'VER', '2': 'SAR', '3': 'RIC', '4': 'NOR', '5': 'VET', '6': 'DEV',
+      '10': 'GAS', '11': 'PER', '14': 'ALO', '16': 'LEC', '18': 'STR', '20': 'MAG',
+      '22': 'TSU', '23': 'ALB', '24': 'ZHO', '27': 'HUL', '30': 'OCA', '31': 'OCO',
+      '43': 'COL', '44': 'HAM', '55': 'SAI', '63': 'RUS', '77': 'BOT', '81': 'PIA'
+    };
+    
+    // Initialize driver state from DriverList feed
+    if (data.drivers) {
+      Object.entries(data.drivers).forEach(([driverNumber, driverInfo]) => {
+        // Create or update driver entry
+        const existingDriver = this.driversState.get(driverNumber) || {};
+        
+        const updatedDriver = {
+          id: driverNumber,
+          driverNumber,
+          name: driverNames[driverNumber] || `#${driverNumber}`,
+          position: existingDriver.position || 0,
+          lastLapTime: existingDriver.lastLapTime || null,
+          bestLapTime: existingDriver.bestLapTime !== undefined ? existingDriver.bestLapTime : null, // Properly preserve existing bestLapTime
+          completedLaps: existingDriver.completedLaps || 0,
+          gap: existingDriver.gap || null,
+          interval: existingDriver.interval || null,
+          inPit: existingDriver.inPit || false,
+          status: existingDriver.status || 'RUNNING',
+          timestamp: data.timestamp
+        };
+        
+        this.driversState.set(driverNumber, updatedDriver);
+      });
+      
+      // Emit complete drivers list
+      const allDrivers = Array.from(this.driversState.values()).sort((a, b) => {
+        if (!a.position && !b.position) return parseInt(a.driverNumber) - parseInt(b.driverNumber);
+        if (!a.position) return 1;
+        if (!b.position) return -1;
+        return a.position - b.position;
+      });
+      
+      this.io.emit('drivers:all', allDrivers);
+    }
   }
 
   handleWeatherData(data) {
@@ -570,13 +733,11 @@ class F1SignalRService {
     ];
 
     try {
-      for (const feed of feeds) {
-        await this.subscribeTo(feed);
-        this.subscriptions.add(feed);
-        logger.debug(`Subscribed to feed: ${feed}`);
-      }
+      // F1 expects Subscribe(channels:String[]) - pass as named parameter
+      await this.client.call('Streaming', 'Subscribe', [feeds]);
+      feeds.forEach(feed => this.subscriptions.add(feed));
       
-      logger.info(`Successfully subscribed to ${feeds.length} feeds`);
+      logger.info(`Successfully subscribed to ${feeds.length} feeds in batch`);
     } catch (error) {
       logger.error('Failed to subscribe to feeds:', error);
       throw error;
@@ -738,6 +899,96 @@ class F1SignalRService {
       logger.debug(`Data cached for feed: ${feedName}`);
     } catch (error) {
       logger.error(`Failed to cache data for ${feedName}:`, error);
+    }
+  }
+
+  /**
+   * Log processed data to database based on feed type
+   */
+  async logToDatabase(feedName, data) {
+    try {
+      if (!this.databaseService.isInitialized) {
+        logger.debug('Database service not initialized, skipping database logging');
+        return;
+      }
+
+      switch (feedName) {
+        case 'SessionInfo':
+        case 'SessionData':
+          await this.databaseService.ensureSession(data);
+          break;
+          
+        case 'DriverList':
+          // Ensure session exists first
+          if (data.drivers) {
+            // For DriverList, we might not have explicit session data
+            // Create a minimal session from timestamp
+            const sessionData = {
+              sessionName: 'Current Session',
+              sessionType: 'Unknown',
+              year: new Date().getFullYear(),
+              location: 'Unknown Track'
+            };
+            await this.databaseService.ensureSession(sessionData);
+            
+            // Process each driver
+            for (const [driverNumber, driverInfo] of Object.entries(data.drivers)) {
+              await this.databaseService.ensureDriver(driverNumber, driverInfo);
+            }
+          }
+          break;
+          
+        case 'TimingData':
+          // Ensure session exists before logging timing data
+          if (!this.databaseService.getCurrentSession()) {
+            const currentDate = new Date();
+            const sessionData = {
+              sessionName: 'Live Session',
+              sessionType: 'Practice', // Default to Practice
+              year: currentDate.getFullYear(),
+              location: 'F1 Circuit',
+              circuitName: 'Unknown Circuit',
+              countryCode: null,
+              countryName: null,
+              meetingName: `F1 ${currentDate.getFullYear()}`,
+              started: currentDate,
+              sessionState: 'Active'
+            };
+            await this.databaseService.ensureSession(sessionData);
+            logger.info('Created default session for timing data');
+          }
+          await this.databaseService.logTimingData(data);
+          break;
+          
+        case 'CarData.z':
+          await this.databaseService.logCarTelemetry(data);
+          break;
+          
+        case 'Position.z':
+          await this.databaseService.logPositionData(data);
+          break;
+          
+        case 'WeatherData':
+          await this.databaseService.logWeatherData(data);
+          break;
+          
+        case 'TrackStatus':
+          await this.databaseService.logTrackStatus(data);
+          break;
+          
+        case 'RaceControlMessages':
+          await this.databaseService.logRaceControlMessages(data);
+          break;
+          
+        default:
+          // Log as generic feed data
+          await this.databaseService.logGenericFeedData(feedName, data);
+      }
+      
+      logger.debug(`Data logged to database for feed: ${feedName}`);
+    } catch (error) {
+      logger.error(`Failed to log data to database for ${feedName}:`, error);
+      // Don't throw - database logging should not interrupt the main flow
     }
   }
 

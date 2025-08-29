@@ -12,6 +12,7 @@ const healthChecker = require('./utils/healthCheck');
 const { setupWebSocket } = require('./services/websocket');
 const { initializeSignalR } = require('./services/signalr');
 const { initializeCacheService } = require('./services/cache');
+const { initialize: initializeDatabase } = require('./database');
 const { globalErrorHandler } = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 const { validateSecureHeaders, validateRequestSize } = require('./middleware/validation');
@@ -21,6 +22,7 @@ const { authenticateAdmin, adminLogin, refreshAdminToken, authRateLimit } = requ
 const { router: sessionRoutes } = require('./routes/session');
 const { router: driversRoutes } = require('./routes/drivers');
 const { router: trackRoutes } = require('./routes/track');
+const { router: databaseRoutes } = require('./routes/database');
 
 class F1BackendServer {
   constructor() {
@@ -32,6 +34,7 @@ class F1BackendServer {
     this.io = null;
     this.signalRService = null;
     this.cacheService = null;
+    this.databaseService = null;
   }
 
   setupMiddleware() {
@@ -271,6 +274,96 @@ class F1BackendServer {
       }
     });
 
+    // Database management endpoints (JWT protected)
+    this.app.get('/admin/database/stats', authenticateAdmin(['admin', 'superadmin']), async (req, res) => {
+      try {
+        const { getStatus } = require('./database');
+        const status = getStatus();
+        
+        logger.info('Database stats accessed', {
+          adminId: req.admin.id,
+          role: req.admin.role,
+          timestamp: new Date().toISOString()
+        });
+        
+        res.json({
+          success: true,
+          data: status,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Database stats error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Internal Server Error',
+          message: 'Failed to retrieve database statistics',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    this.app.post('/admin/database/backup', authenticateAdmin(['admin', 'superadmin']), async (req, res) => {
+      try {
+        const { maintenance } = require('./database');
+        const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+        const backupPath = `./data/backups/f1_timing_backup_${timestamp}.db`;
+        
+        await maintenance({ backupPath });
+        
+        logger.warn('Database backup created', {
+          adminId: req.admin.id,
+          role: req.admin.role,
+          backupPath,
+          timestamp: new Date().toISOString()
+        });
+
+        res.json({
+          success: true,
+          message: `Database backup created successfully`,
+          backupPath,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Database backup error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Internal Server Error',
+          message: 'Failed to create database backup',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    this.app.post('/admin/database/optimize', authenticateAdmin(['admin', 'superadmin']), async (req, res) => {
+      try {
+        const { maintenance } = require('./database');
+        const { vacuum } = req.body;
+        
+        await maintenance({ vacuum: !!vacuum });
+        
+        logger.warn('Database optimization performed', {
+          adminId: req.admin.id,
+          role: req.admin.role,
+          vacuum: !!vacuum,
+          timestamp: new Date().toISOString()
+        });
+
+        res.json({
+          success: true,
+          message: `Database optimization completed${vacuum ? ' with vacuum' : ''}`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Database optimization error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Internal Server Error',
+          message: 'Failed to optimize database',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Cache management endpoints (JWT protected)
     this.app.get('/admin/cache/stats', authenticateAdmin(['admin', 'superadmin']), async (req, res) => {
       try {
@@ -381,6 +474,7 @@ class F1BackendServer {
     this.app.use('/api/session', sessionRoutes);
     this.app.use('/api/drivers', driversRoutes);
     this.app.use('/api/track', trackRoutes);
+    this.app.use('/api/database', databaseRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -416,7 +510,19 @@ class F1BackendServer {
 
   async start() {
     try {
-      // Initialize cache service first (required by other services)
+      // Initialize database service first
+      try {
+        const dbSystem = await initializeDatabase({
+          path: process.env.DATABASE_PATH || './data/f1_timing.db'
+        });
+        this.databaseService = dbSystem.service;
+        logger.info('Database service initialized');
+      } catch (dbError) {
+        logger.warn('Database service initialization failed, continuing without database logging:', dbError.message);
+        this.databaseService = null;
+      }
+
+      // Initialize cache service (required by other services)
       try {
         this.cacheService = await initializeCacheService();
         logger.info('Cache service initialized');
@@ -474,6 +580,12 @@ class F1BackendServer {
         if (this.signalRService) {
           await this.signalRService.disconnect();
           logger.info('SignalR connection closed');
+        }
+
+        // Close database service
+        if (this.databaseService && this.databaseService.db) {
+          await this.databaseService.db.gracefulShutdown();
+          logger.info('Database service closed');
         }
 
         // Close cache service

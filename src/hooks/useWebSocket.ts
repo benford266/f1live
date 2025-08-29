@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Driver, RaceStatus, ConnectionStatus } from '../types/f1Data';
+import { Driver, RaceStatus, TrackStatus, ConnectionStatus } from '../types/f1Data';
 
 const WEBSOCKET_URL = process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:3001';
 
 export const useWebSocket = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [raceStatus, setRaceStatus] = useState<RaceStatus | null>(null);
+  const [trackStatus, setTrackStatus] = useState<TrackStatus | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
     isConnected: false,
     isConnecting: false,
@@ -96,6 +97,11 @@ export const useWebSocket = () => {
       setConnectionStatus(prev => ({ ...prev, lastUpdate: new Date() }));
     });
 
+    socket.on('track:status', (status: TrackStatus) => {
+      setTrackStatus(status);
+      setConnectionStatus(prev => ({ ...prev, lastUpdate: new Date() }));
+    });
+
     socket.on('lap:completed', (lapData: { driverId: string; lapTime: string; lapNumber: number }) => {
       setDrivers(prev => 
         prev.map(driver => 
@@ -151,6 +157,7 @@ export const useWebSocket = () => {
   return {
     drivers,
     raceStatus,
+    trackStatus,
     connectionStatus,
     retry,
     disconnect,

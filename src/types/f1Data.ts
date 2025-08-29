@@ -27,9 +27,17 @@ export interface RaceStatus {
   flagStatus?: 'green' | 'yellow' | 'red' | 'checkered' | 'safety_car' | 'virtual_safety_car';
 }
 
+export interface TrackStatus {
+  status: number; // status code (1-7)
+  message: string; // readable message like "Yellow", "Red"
+  flagState: 'Green' | 'Yellow' | 'Red' | 'Safety Car' | 'Virtual Safety Car' | 'Checkered';
+  timestamp: string;
+}
+
 export interface WebSocketEvents {
   'driver:update': Driver;
   'race:status': RaceStatus;
+  'track:status': TrackStatus;
   'lap:completed': {
     driverId: string;
     lapTime: string;

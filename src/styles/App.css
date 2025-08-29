@@ -90,6 +90,96 @@
   font-weight: 500;
 }
 
+/* Track Status Flag */
+.track-status-flag {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.track-status-flag.active {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  animation: flag-pulse 2s infinite;
+}
+
+@keyframes flag-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1); 
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.2); 
+  }
+}
+
+.flag-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.flag-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+  opacity: 0.9;
+  animation: flag-indicator-pulse 2s infinite;
+}
+
+@keyframes flag-indicator-pulse {
+  0%, 100% { 
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.flag-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.flag-icon {
+  font-size: 1.25rem;
+}
+
+.flag-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.flag-state {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.flag-message {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.flag-timestamp {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
 /* Connection Status */
 .connection-status {
   display: flex;
@@ -333,6 +423,19 @@ td {
     padding: 1rem;
   }
   
+  .track-status-flag {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .flag-state {
+    font-size: 1rem;
+  }
+  
+  .flag-message {
+    font-size: 0.8125rem;
+  }
+  
   table {
     font-size: 0.75rem;
   }
@@ -353,6 +456,31 @@ td {
   
   .app-main {
     padding: 1rem 0.5rem;
+  }
+  
+  .track-status-flag {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .flag-container {
+    gap: 0.75rem;
+  }
+  
+  .flag-content {
+    gap: 0.5rem;
+  }
+  
+  .flag-state {
+    font-size: 0.875rem;
+  }
+  
+  .flag-message {
+    font-size: 0.75rem;
+  }
+  
+  .flag-icon {
+    font-size: 1rem;
   }
   
   .table-header {

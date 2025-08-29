@@ -95,7 +95,7 @@ class DataProcessor {
   }
 
   processDriverTiming(driverData) {
-    return {
+    const timing = {
       position: driverData.Position || null,
       driverNumber: driverData.RacingNumber || null,
       lapTime: driverData.LastLapTime?.Value || null,
@@ -103,13 +103,19 @@ class DataProcessor {
       sector1: driverData.Sectors?.[0]?.Value || null,
       sector2: driverData.Sectors?.[1]?.Value || null,
       sector3: driverData.Sectors?.[2]?.Value || null,
-      bestLapTime: driverData.BestLapTime?.Value || null,
       gap: driverData.TimeDiffToFastest || null,
       interval: driverData.TimeDiffToPositionAhead || null,
       status: driverData.Stopped ? 'STOPPED' : 'RUNNING',
       inPit: driverData.InPit || false,
       retired: driverData.Retired || false
     };
+
+    // Only include bestLapTime if it actually exists and has a value
+    if (driverData.BestLapTime?.Value) {
+      timing.bestLapTime = driverData.BestLapTime.Value;
+    }
+
+    return timing;
   }
 
   updateFastestTimes(fastest, driverNumber, driverTiming) {

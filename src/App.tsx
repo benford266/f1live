@@ -3,12 +3,14 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { LiveDataTable } from './components/LiveDataTable';
 import { RaceHeader } from './components/RaceHeader';
 import { ConnectionStatus } from './components/ConnectionStatus';
+import { TrackStatusFlag } from './components/TrackStatusFlag';
 import './styles/App.css';
 
 const App: React.FC = () => {
   const { 
     drivers, 
     raceStatus, 
+    trackStatus,
     connectionStatus, 
     retry 
   } = useWebSocket();
@@ -24,6 +26,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="app-main">
+        <TrackStatusFlag trackStatus={trackStatus} />
         <LiveDataTable 
           drivers={drivers} 
           isConnected={connectionStatus.isConnected}

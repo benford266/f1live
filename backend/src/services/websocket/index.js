@@ -55,9 +55,9 @@ class WebSocketService {
         }
       }
       
-      // Check for suspicious headers
+      // Check for suspicious headers (relaxed for development)
       const userAgent = socket.handshake.headers['user-agent'];
-      if (!userAgent || userAgent.length < 10) {
+      if (config.nodeEnv === 'production' && (!userAgent || userAgent.length < 5)) {
         logger.warn(`Suspicious WebSocket connection from ${clientIP}: invalid user agent`);
         return next(new Error('Invalid user agent'));
       }
@@ -124,6 +124,12 @@ class WebSocketService {
 
       // Send connection confirmation with cached data
       this.sendConnectionEstablished(socket);
+      
+      // Send mock data only if no live F1 data is available
+      // For now, disable mock data to prioritize live F1 data
+      // if (config.nodeEnv === 'development') {
+      //   this.sendMockDriverData(socket);
+      // }
 
       // Handle subscription requests with input validation
       socket.on('subscribe', (feedName) => {
@@ -649,111 +655,64 @@ class WebSocketService {
     }
   }
 
-  // Mock data method for testing purposes (currently disabled)
+  // Mock data method for testing purposes
   sendMockDriverData(socket) {
-    // Send mock driver data for testing - uncomment when needed for development
-    /*
     const mockDrivers = [
       {
         id: '1',
         number: 1,
         name: 'Max Verstappen',
         team: 'Red Bull Racing',
-        teamColor: '#3671C6',
         position: 1,
         gapToLeader: '0',
         lastLapTime: '1:31.456',
         bestLapTime: '1:31.234',
-        currentLapTime: '1:32.123',
-        completedLaps: 25,
-        speed: 315,
-        isRetired: false,
-        isPitStop: false
+        speed: 315
       },
       {
         id: '44',
         number: 44,
         name: 'Lewis Hamilton',
         team: 'Mercedes',
-        teamColor: '#6CD3BF',
         position: 2,
         gapToLeader: '+5.234',
         lastLapTime: '1:31.678',
         bestLapTime: '1:31.456',
-        currentLapTime: '1:32.345',
-        completedLaps: 25,
-        speed: 312,
-        isRetired: false,
-        isPitStop: false
-      },
-      {
-        id: '16',
-        number: 16,
-        name: 'Charles Leclerc',
-        team: 'Ferrari',
-        teamColor: '#F91536',
-        position: 3,
-        gapToLeader: '+8.567',
-        lastLapTime: '1:31.890',
-        bestLapTime: '1:31.567',
-        currentLapTime: '1:32.456',
-        completedLaps: 25,
-        speed: 310,
-        isRetired: false,
-        isPitStop: false
-      },
-      {
-        id: '55',
-        number: 55,
-        name: 'Carlos Sainz',
-        team: 'Ferrari',
-        teamColor: '#F91536',
-        position: 4,
-        gapToLeader: '+12.345',
-        lastLapTime: '1:32.123',
-        bestLapTime: '1:31.678',
-        currentLapTime: '1:32.789',
-        completedLaps: 25,
-        speed: 308,
-        isRetired: false,
-        isPitStop: false
-      },
-      {
-        id: '63',
-        number: 63,
-        name: 'George Russell',
-        team: 'Mercedes',
-        teamColor: '#6CD3BF',
-        position: 5,
-        gapToLeader: '+18.901',
-        lastLapTime: '1:32.456',
-        bestLapTime: '1:31.890',
-        currentLapTime: '1:33.123',
-        completedLaps: 25,
-        speed: 305,
-        isRetired: false,
-        isPitStop: false
+        speed: 312
       }
     ];
 
     logger.debug(`Sending mock driver data to client: ${socket.id}`);
     socket.emit('drivers:all', mockDrivers);
     
-    // Also send mock race status
     socket.emit('race:status', {
       sessionType: 'Race',
       sessionName: 'Formula 1 Test Session',
-      trackName: 'Bahrain International Circuit',
-      weather: 'Clear',
-      airTemp: 32,
-      trackTemp: 45,
+      trackName: 'Zandvoort Circuit',
       lapNumber: 25,
-      totalLaps: 57,
-      timeRemaining: '1h 23m 45s',
-      raceState: 'RACING'
+      totalLaps: 57
     });
-    */
-    logger.debug(`Client connected: ${socket.id} - waiting for live F1 data`);
+    
+    // Send updated data every 2 seconds
+    const mockInterval = setInterval(() => {
+      if (!socket.connected) {
+        clearInterval(mockInterval);
+        return;
+      }
+      
+      const updatedDrivers = mockDrivers.map(driver => ({
+        ...driver,
+        speed: Math.floor(Math.random() * 20) + 300,
+        lastLapTime: `1:3${Math.floor(Math.random() * 9)}.${String(Math.floor(Math.random() * 999)).padStart(3, '0')}`
+      }));
+      
+      socket.emit('drivers:all', updatedDrivers);
+      updatedDrivers.forEach(driver => {
+        socket.emit('driver:update', driver);
+      });
+    }, 2000);
+    
+    socket.on('disconnect', () => clearInterval(mockInterval));
   }
 
   sendInitialFeedData(socket, feedName) {
