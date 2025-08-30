@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Backend service
   f1-backend:
@@ -10,9 +8,8 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
+    env_file:
+      - ./backend/.env.production
     volumes:
       # Persist database and logs
       - ./backend/data:/app/data

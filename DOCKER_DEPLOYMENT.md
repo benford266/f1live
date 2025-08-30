@@ -38,8 +38,15 @@ docker-compose down
 
 ### For your domains (f1live.myfoodpal.food and f1backend.myfoodpal.food):
 
-1. **Update environment variables** in `.env.production` if needed
-2. **Deploy on your server:**
+1. **IMPORTANT: Update JWT secrets** in `backend/.env.production`:
+   ```bash
+   # Generate secure random secrets (32+ characters each)
+   JWT_SECRET=your-actual-secret-key-here
+   JWT_REFRESH_SECRET=your-actual-refresh-secret-here
+   ```
+
+2. **Update other environment variables** in `backend/.env.production` if needed
+3. **Deploy on your server:**
    ```bash
    # Copy files to your server
    scp -r . user@your-server:/path/to/f1-app/
