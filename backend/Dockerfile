@@ -1,8 +1,14 @@
 # Backend Dockerfile
 FROM node:20-alpine
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install build dependencies and runtime dependencies
+RUN apk add --no-cache \
+    dumb-init \
+    python3 \
+    make \
+    g++ \
+    libc6-compat \
+    && ln -sf python3 /usr/bin/python
 
 # Create app directory
 WORKDIR /app
@@ -14,8 +20,8 @@ RUN adduser -S nodejs -u 1001
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies (keep build tools for native modules)
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy source code
 COPY . .
