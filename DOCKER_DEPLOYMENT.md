@@ -21,7 +21,7 @@
 3. **Access your application:**
    - Frontend: http://localhost
    - Backend API: http://localhost:3001
-   - Redis (if enabled): localhost:6379
+   - Redis (if enabled): Internal only - not exposed externally
 
 ## Manual Deployment
 

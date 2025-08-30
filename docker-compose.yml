@@ -4,8 +4,7 @@ services:
     image: redis:7-alpine
     container_name: f1-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # No port mapping needed - only internal access via Docker network
     command: redis-server --appendonly yes
     volumes:
       - f1-redis-data:/data
