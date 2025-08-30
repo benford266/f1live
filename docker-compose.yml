@@ -27,6 +27,10 @@ services:
       - "3001:3001"
     env_file:
       - ./backend/.env.production
+    environment:
+      # Override Redis connection to ensure Docker network connectivity
+      - REDIS_HOST=f1-redis
+      - REDIS_PORT=6379
     depends_on:
       f1-redis:
         condition: service_healthy
