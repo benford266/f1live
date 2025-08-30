@@ -9,11 +9,11 @@
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "axios": "^1.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "socket.io-client": "^4.7.4",
-    "axios": "^1.6.2",
     "typescript": "^5.9.2",
     "web-vitals": "^3.5.0"
   },
@@ -21,8 +21,8 @@
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
     "test": "react-scripts test",
     "test:coverage": "react-scripts test --coverage --watchAll=false",
     "test:ci": "react-scripts test --coverage --ci --watchAll=false",
@@ -60,17 +60,19 @@
     ]
   },
   "devDependencies": {
+    "@lhci/cli": "^0.12.0",
     "@testing-library/jest-dom": "^6.2.0",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
-    "msw": "^2.0.11",
-    "whatwg-fetch": "^3.6.19",
     "@types/testing-library__jest-dom": "^6.0.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "eslint-plugin-testing-library": "^6.2.0",
+    "customize-cra": "^1.0.0",
     "eslint-plugin-jest-dom": "^5.1.0",
-    "@lhci/cli": "^0.12.0",
-    "webpack-bundle-analyzer": "^4.10.1"
+    "eslint-plugin-testing-library": "^6.2.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "msw": "^2.0.11",
+    "react-app-rewired": "^2.2.1",
+    "webpack-bundle-analyzer": "^4.10.1",
+    "whatwg-fetch": "^3.6.19"
   },
   "jest": {
     "collectCoverageFrom": [
