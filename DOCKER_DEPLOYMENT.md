@@ -6,14 +6,22 @@
    - Docker: https://docs.docker.com/get-docker/
    - Docker Compose: https://docs.docker.com/compose/install/
 
-2. **Deploy with one command:**
+2. **Choose your deployment mode:**
+
+   **With Redis (recommended for production):**
    ```bash
    ./deploy.sh
+   ```
+
+   **Without Redis (simpler, memory-only caching):**
+   ```bash
+   docker-compose -f docker-compose.no-redis.yml up --build -d
    ```
 
 3. **Access your application:**
    - Frontend: http://localhost
    - Backend API: http://localhost:3001
+   - Redis (if enabled): localhost:6379
 
 ## Manual Deployment
 

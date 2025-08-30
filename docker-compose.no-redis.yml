@@ -1,23 +1,5 @@
 services:
-  # Redis service (optional)
-  f1-redis:
-    image: redis:7-alpine
-    container_name: f1-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - f1-redis-data:/data
-    networks:
-      - f1-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-
-  # Backend service
+  # Backend service (no Redis)
   f1-backend:
     build:
       context: ./backend
@@ -26,11 +8,23 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
-    env_file:
-      - ./backend/.env.production
-    depends_on:
-      f1-redis:
-        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-minimum-32-characters
+      - JWT_ADMIN_SECRET=your-super-secret-admin-key-change-this-in-production-minimum-32-characters
+      - JWT_EXPIRES_IN=1h
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - DATABASE_URL=./data/f1_timing.db
+      - REDIS_FAILOVER_ENABLED=false
+      - REDIS_FALLBACK_TO_MEMORY=true
+      - LOG_LEVEL=info
+      - LOG_FILE=./logs/app.log
+      - CORS_ORIGIN=https://f1live.myfoodpal.food
+      - RATE_LIMIT_WINDOW=15
+      - RATE_LIMIT_MAX=100
+      - F1_API_TIMEOUT=30000
+      - F1_API_RETRY_ATTEMPTS=3
     volumes:
       # Persist database and logs
       - ./backend/data:/app/data
@@ -72,4 +66,3 @@ networks:
 volumes:
   f1-data:
   f1-logs:
-  f1-redis-data:
