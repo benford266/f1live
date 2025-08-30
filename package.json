@@ -96,7 +96,7 @@
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   },
-  "proxy": "http://localhost:3001",
+  "proxy": "https://f1backend.myfoodpal.food",
   "keywords": [
     "f1",
     "formula1",

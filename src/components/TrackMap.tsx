@@ -98,9 +98,10 @@ export const TrackMap: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
       const [mapResponse, statsResponse] = await Promise.all([
-        fetch('/api/mapping/map'),
-        fetch('/api/mapping/stats')
+        fetch(`${apiBaseUrl}/api/mapping/map`),
+        fetch(`${apiBaseUrl}/api/mapping/stats`)
       ]);
 
       if (!mapResponse.ok || !statsResponse.ok) {
