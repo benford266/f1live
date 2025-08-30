@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Backend service
+  f1-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: f1-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      # Persist database and logs
+      - ./backend/data:/app/data
+      - ./backend/logs:/app/logs
+    networks:
+      - f1-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "http.get('http://localhost:3001/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  # Frontend service
+  f1-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: f1-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      f1-backend:
+        condition: service_healthy
+    networks:
+      - f1-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  f1-network:
+    driver: bridge
+
+volumes:
+  f1-data:
+  f1-logs:

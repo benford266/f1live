@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Test files
+__tests__
+coverage
+*.test.js
+
+# Development files
+.env.local
+.env.development
+nodemon.json
+
+# Logs (will be created in container)
+logs/*.log
+
+# Database files (should be mounted as volume in production)
+data/*.db*
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore

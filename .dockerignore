@@ -1,0 +1,47 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Build output (will be generated in container)
+build
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test files
+src/**/*.test.js
+src/**/*.test.ts
+src/**/*.test.tsx
+coverage
+
+# Development configs
+config-overrides.js
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+server-config-notes.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Backend directory
+backend/
