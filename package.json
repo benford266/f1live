@@ -4,7 +4,7 @@
   "description": "Real-time F1 data visualization application with comprehensive testing framework",
   "private": true,
   "main": "src/index.tsx",
-  "homepage": ".",
+  "homepage": "/",
   "dependencies": {
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.45",
