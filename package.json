@@ -94,6 +94,7 @@
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   },
+  "proxy": "http://localhost:3001",
   "keywords": [
     "f1",
     "formula1",

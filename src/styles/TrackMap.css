@@ -1,0 +1,315 @@
+/* Track Map Component Styles */
+.track-map-container {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  color: white;
+  min-height: 600px;
+}
+
+.track-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e74c3c;
+}
+
+.track-map-header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.track-map-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #bdc3c7;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.stat-value.excellent {
+  color: #27ae60;
+}
+
+.stat-value.sufficient {
+  color: #f39c12;
+}
+
+.stat-value.insufficient {
+  color: #e74c3c;
+}
+
+/* Loading and Error States */
+.track-map-loading,
+.track-map-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #34495e;
+  border-top: 4px solid #e74c3c;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.track-map-error h3 {
+  color: #e74c3c;
+  margin-bottom: 10px;
+}
+
+.retry-button {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 15px;
+  transition: background-color 0.2s ease;
+}
+
+.retry-button:hover {
+  background: #c0392b;
+}
+
+/* Track Content */
+.track-map-content {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.track-canvas {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 2px solid #34495e;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.track-info {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #34495e;
+}
+
+.track-info h3 {
+  margin: 0 0 15px 0;
+  color: #e74c3c;
+  font-size: 22px;
+}
+
+.track-info p {
+  margin: 8px 0;
+  color: #bdc3c7;
+  font-size: 14px;
+}
+
+/* No Track Data State */
+.no-track-data {
+  text-align: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 2px dashed #34495e;
+}
+
+.no-track-data h3 {
+  color: #f39c12;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.no-track-data p {
+  color: #bdc3c7;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.track-requirements {
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.track-requirements h4 {
+  color: #e74c3c;
+  margin-bottom: 10px;
+}
+
+.track-requirements ul {
+  color: #bdc3c7;
+  padding-left: 20px;
+}
+
+.track-requirements li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+/* Real-time Positions */
+.realtime-positions {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #34495e;
+}
+
+.realtime-positions h3 {
+  margin: 0 0 20px 0;
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.positions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.position-card {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #34495e;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.position-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.driver-number {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e74c3c;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.position-coords {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.position-coords div {
+  font-size: 12px;
+  color: #bdc3c7;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.position-age {
+  text-align: center;
+  font-size: 11px;
+  color: #95a5a6;
+  font-style: italic;
+}
+
+.no-positions {
+  text-align: center;
+  color: #7f8c8d;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .track-map-container {
+    padding: 15px;
+    margin: 10px 0;
+  }
+
+  .track-map-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .track-map-stats {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .track-map-content {
+    flex-direction: column;
+  }
+
+  .track-canvas {
+    width: 100%;
+    height: auto;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .positions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .position-card {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .track-map-header h2 {
+    font-size: 24px;
+  }
+
+  .track-map-stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+
+  .positions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .position-coords {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

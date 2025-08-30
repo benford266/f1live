@@ -21,6 +21,52 @@
   gap: 1rem;
 }
 
+/* Navigation */
+.app-navigation {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.75rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  gap: 1rem;
+  position: sticky;
+  top: 78px; /* Adjust based on header height */
+  z-index: 90;
+  backdrop-filter: blur(10px);
+}
+
+.nav-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.nav-button.active {
+  background: linear-gradient(45deg, #e74c3c, #c0392b);
+  color: white;
+  border-color: #e74c3c;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.nav-button.active:hover {
+  background: linear-gradient(45deg, #c0392b, #a93226);
+  transform: translateY(-1px);
+}
+
 .app-main {
   flex: 1;
   padding: 2rem;

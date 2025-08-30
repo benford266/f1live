@@ -23,6 +23,8 @@ const { router: sessionRoutes } = require('./routes/session');
 const { router: driversRoutes } = require('./routes/drivers');
 const { router: trackRoutes } = require('./routes/track');
 const { router: databaseRoutes } = require('./routes/database');
+const { router: trackMappingRoutes, setTrackMappingService } = require('./routes/trackMapping');
+const TrackMappingService = require('./services/trackMapping');
 
 class F1BackendServer {
   constructor() {
@@ -35,6 +37,7 @@ class F1BackendServer {
     this.signalRService = null;
     this.cacheService = null;
     this.databaseService = null;
+    this.trackMappingService = null;
   }
 
   setupMiddleware() {
@@ -475,6 +478,7 @@ class F1BackendServer {
     this.app.use('/api/drivers', driversRoutes);
     this.app.use('/api/track', trackRoutes);
     this.app.use('/api/database', databaseRoutes);
+    this.app.use('/api/mapping', trackMappingRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -536,9 +540,14 @@ class F1BackendServer {
       this.io = setupWebSocket(this.server);
       logger.info('WebSocket server initialized');
 
+      // Initialize Track Mapping service
+      this.trackMappingService = new TrackMappingService();
+      setTrackMappingService(this.trackMappingService);
+      logger.info('Track mapping service initialized');
+
       // Initialize SignalR service (with error handling)
       try {
-        this.signalRService = await initializeSignalR(this.io);
+        this.signalRService = await initializeSignalR(this.io, this.trackMappingService);
         logger.info('SignalR service initialized');
         healthChecker.addSignalRCheck(this.signalRService);
       } catch (signalRError) {

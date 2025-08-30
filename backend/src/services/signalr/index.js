@@ -352,7 +352,7 @@ class LegacySignalRClient extends EventEmitter {
  * Handles connection to F1's live timing API and data distribution
  */
 class F1SignalRService {
-  constructor(io) {
+  constructor(io, trackMappingService = null) {
     this.io = io;
     this.client = null;
     this.isConnected = false;
@@ -362,6 +362,7 @@ class F1SignalRService {
     this.connectionRetryTimeout = null;
     this.maxReconnectAttempts = config.f1.maxReconnectAttempts;
     this.reconnectInterval = config.f1.reconnectInterval;
+    this.trackMappingService = trackMappingService;
     this.cacheService = getCacheService();
     this.databaseService = getDatabaseService();
     
@@ -528,6 +529,15 @@ class F1SignalRService {
   handleTimingData(data) {
     this.io.emit('timing:update', data);
     
+    // Pass timing data to track mapping service for enhanced position tracking
+    if (this.trackMappingService && data) {
+      try {
+        this.trackMappingService.processTimingData(data);
+      } catch (error) {
+        logger.warn('Error processing timing data for track mapping:', error);
+      }
+    }
+    
     // Driver name mapping for 2024 season (typical F1 numbers)
     const driverNames = {
       '1': 'VER', '2': 'SAR', '3': 'RIC', '4': 'NOR', '5': 'VET', '6': 'DEV',
@@ -622,6 +632,22 @@ class F1SignalRService {
 
   handlePositionData(data) {
     this.io.emit('position:update', data);
+    
+    // Pass position data to track mapping service for track generation
+    if (this.trackMappingService && data) {
+      try {
+        const positions = this.trackMappingService.processPositionData(data);
+        if (positions && Object.keys(positions).length > 0) {
+          // Broadcast updated driver positions for real-time track visualization
+          this.io.emit('track:positions', {
+            positions,
+            timestamp: data.timestamp
+          });
+        }
+      } catch (error) {
+        logger.warn('Error processing position data for track mapping:', error);
+      }
+    }
   }
 
   handleSessionInfo(data) {
@@ -1199,8 +1225,8 @@ class F1SignalRService {
 /**
  * Initialize the F1 SignalR service
  */
-async function initializeSignalR(io) {
-  const service = new F1SignalRService(io);
+async function initializeSignalR(io, trackMappingService = null) {
+  const service = new F1SignalRService(io, trackMappingService);
   await service.initialize();
   return service;
 }

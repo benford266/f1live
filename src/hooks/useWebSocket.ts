@@ -159,6 +159,7 @@ export const useWebSocket = () => {
     raceStatus,
     trackStatus,
     connectionStatus,
+    socket: socketRef.current,
     retry,
     disconnect,
   };

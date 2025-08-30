@@ -5,6 +5,7 @@
 
 const logger = require('../utils/logger');
 const { getDatabaseInstance } = require('./connection');
+const { getFallbackDriverInfo } = require('../utils/driverMappings');
 const SessionRepository = require('./repositories/SessionRepository');
 const DriverRepository = require('./repositories/DriverRepository');
 const TimingRepository = require('./repositories/TimingRepository');
@@ -195,17 +196,20 @@ class F1DatabaseService {
       let driver = await this.drivers.findBySessionAndNumber(sessionId, driverNumber);
       
       if (!driver) {
-        // Create new driver
+        // Use fallback driver data if DriverList data isn't available
+        const fallbackInfo = getFallbackDriverInfo(driverNumber);
+        
+        // Create new driver with fallback data
         const driverRecord = {
           session_id: sessionId,
           driver_number: driverNumber,
-          broadcast_name: driverData.broadcastName || null,
-          full_name: driverData.fullName || null,
-          first_name: driverData.firstName || null,
-          last_name: driverData.lastName || null,
-          tla: driverData.tla || null,
-          team_name: driverData.team || driverData.teamName || null,
-          team_color: driverData.teamColor || null,
+          broadcast_name: driverData.broadcastName || (fallbackInfo ? fallbackInfo.broadcastName : null),
+          full_name: driverData.fullName || (fallbackInfo ? fallbackInfo.fullName : null),
+          first_name: driverData.firstName || (fallbackInfo ? fallbackInfo.firstName : null),
+          last_name: driverData.lastName || (fallbackInfo ? fallbackInfo.lastName : null),
+          tla: driverData.tla || (fallbackInfo ? fallbackInfo.tla : null),
+          team_name: driverData.team || driverData.teamName || (fallbackInfo ? fallbackInfo.team : null),
+          team_color: driverData.teamColor || (fallbackInfo ? fallbackInfo.teamColor : null),
           reference: driverData.reference || null,
           headshot_url: driverData.headShotUrl || null
         };
@@ -213,22 +217,38 @@ class F1DatabaseService {
         driver = await this.drivers.create(driverRecord);
         logger.debug(`Created driver ${driverNumber} for session ${sessionId}`);
       } else {
-        // Update driver info if provided
-        if (Object.keys(driverData).length > 0) {
-          const updates = {};
-          if (driverData.broadcastName) updates.broadcast_name = driverData.broadcastName;
-          if (driverData.fullName) updates.full_name = driverData.fullName;
-          if (driverData.firstName) updates.first_name = driverData.firstName;
-          if (driverData.lastName) updates.last_name = driverData.lastName;
-          if (driverData.tla) updates.tla = driverData.tla;
-          if (driverData.team || driverData.teamName) updates.team_name = driverData.team || driverData.teamName;
-          if (driverData.teamColor) updates.team_color = driverData.teamColor;
-          if (driverData.reference) updates.reference = driverData.reference;
-          if (driverData.headShotUrl) updates.headshot_url = driverData.headShotUrl;
+        // Update driver info if provided, or use fallback data if fields are empty
+        const fallbackInfo = getFallbackDriverInfo(driverNumber);
+        const updates = {};
+        
+        // Update with provided data or fallback if current data is null
+        if (driverData.broadcastName) updates.broadcast_name = driverData.broadcastName;
+        else if (!driver.broadcast_name && fallbackInfo) updates.broadcast_name = fallbackInfo.broadcastName;
+        
+        if (driverData.fullName) updates.full_name = driverData.fullName;
+        else if (!driver.full_name && fallbackInfo) updates.full_name = fallbackInfo.fullName;
+        
+        if (driverData.firstName) updates.first_name = driverData.firstName;
+        else if (!driver.first_name && fallbackInfo) updates.first_name = fallbackInfo.firstName;
+        
+        if (driverData.lastName) updates.last_name = driverData.lastName;
+        else if (!driver.last_name && fallbackInfo) updates.last_name = fallbackInfo.lastName;
+        
+        if (driverData.tla) updates.tla = driverData.tla;
+        else if (!driver.tla && fallbackInfo) updates.tla = fallbackInfo.tla;
+        
+        if (driverData.team || driverData.teamName) updates.team_name = driverData.team || driverData.teamName;
+        else if (!driver.team_name && fallbackInfo) updates.team_name = fallbackInfo.team;
+        
+        if (driverData.teamColor) updates.team_color = driverData.teamColor;
+        else if (!driver.team_color && fallbackInfo) updates.team_color = fallbackInfo.teamColor;
+        
+        if (driverData.reference) updates.reference = driverData.reference;
+        if (driverData.headShotUrl) updates.headshot_url = driverData.headShotUrl;
 
-          if (Object.keys(updates).length > 0) {
-            driver = await this.drivers.update(driver.id, updates);
-          }
+        if (Object.keys(updates).length > 0) {
+          driver = await this.drivers.update(driver.id, updates);
+          logger.debug(`Updated driver ${driverNumber} with ${fallbackInfo ? 'fallback' : 'provided'} data`);
         }
       }
 
@@ -557,6 +577,57 @@ class F1DatabaseService {
     this.sessionDriverMap.clear();
     this.currentSession = null;
     logger.debug('Session cache cleared');
+  }
+
+  /**
+   * Backfill existing drivers with fallback data when names are missing
+   * @param {number} sessionId - Optional session ID, defaults to current session
+   */
+  async backfillDriverNames(sessionId = null) {
+    try {
+      const targetSessionId = sessionId || (this.currentSession ? this.currentSession.id : null);
+      if (!targetSessionId) {
+        logger.warn('No session available for driver name backfill');
+        return;
+      }
+
+      // Get all drivers for the session that are missing name data
+      const driversToUpdate = await this.drivers.query(
+        'SELECT * FROM drivers WHERE session_id = ? AND (broadcast_name IS NULL OR full_name IS NULL)',
+        [targetSessionId]
+      );
+
+      let updatedCount = 0;
+      for (const driver of driversToUpdate) {
+        const fallbackInfo = getFallbackDriverInfo(driver.driver_number);
+        if (fallbackInfo) {
+          const updates = {};
+          
+          if (!driver.broadcast_name) updates.broadcast_name = fallbackInfo.broadcastName;
+          if (!driver.full_name) updates.full_name = fallbackInfo.fullName;
+          if (!driver.first_name) updates.first_name = fallbackInfo.firstName;
+          if (!driver.last_name) updates.last_name = fallbackInfo.lastName;
+          if (!driver.tla) updates.tla = fallbackInfo.tla;
+          if (!driver.team_name) updates.team_name = fallbackInfo.team;
+          if (!driver.team_color) updates.team_color = fallbackInfo.teamColor;
+
+          if (Object.keys(updates).length > 0) {
+            await this.drivers.update(driver.id, updates);
+            updatedCount++;
+            logger.debug(`Backfilled driver ${driver.driver_number} with fallback data`);
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        logger.info(`Backfilled ${updatedCount} drivers with fallback name data`);
+      }
+
+      return updatedCount;
+    } catch (error) {
+      logger.error('Error backfilling driver names:', error);
+      throw error;
+    }
   }
 }
 
